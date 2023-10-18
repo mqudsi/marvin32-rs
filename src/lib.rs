@@ -2,17 +2,17 @@ use std::io::{ErrorKind, Read};
 
 /// Calculate the 32-bit hash of the provided slice `slice` using the initial seed `seed`.
 ///
-/// This should be preferred over [`hash()`] for input that's already been loaded to memory and has
-/// a known length, as it produces tighter assembly.
-pub fn hash_slice(slice: &[u8], seed: u64) -> u32 {
+/// This should be preferred over [`hash_streaming()`] for input that's already been loaded to
+/// memory and has a known length, as it produces tighter assembly.
+pub fn hash(slice: &[u8], seed: u64) -> u32 {
     marvin32_hash(slice, seed)
 }
 
 /// Calculate the 32-bit hash of the provided `source` using the initial seed `seed`.
 ///
-/// Only returns an error in case reading from `source` failed. Prefer to use `[hash_slice()]` if
+/// Only returns an error in case reading from `source` failed. Prefer to use `[hash()]` if
 /// the input has already been loaded into memory as it is faster.
-pub fn hash<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32> {
+pub fn hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32> {
     marvin32_hash_streaming(source, seed)
 }
 
