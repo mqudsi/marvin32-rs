@@ -21,6 +21,7 @@ struct Marvin32State {
     hi: u32,
 }
 
+#[inline(always)]
 fn marvin32_mix(st: &mut Marvin32State, v: u32) {
     st.lo = st.lo.wrapping_add(v);
     st.hi ^= st.lo;
