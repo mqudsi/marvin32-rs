@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 authors = [ "Mahmoud Al-Qudsi <mqudsi@neosmart.net>" ]
 description = "DOS-resistant hash algorithm, sometimes faster than SipHash"
-keywords = [ "hashing", "hash", "hasher", ".net", "csharp" ]
+keywords = [ "hashing", "hash", "hasher", "dotnet", "csharp" ]
 categories = [ "algorithms", "no_std" ]
 repository = "https://github.com/mqudsi/marvin32-rs"
 homepage = "http://neosmart.net/blog/?s=marvin32"
