@@ -29,7 +29,7 @@ fn strings<H: Hasher, const LEN: usize>(bencher: divan::Bencher) {
             BytesCount::of_str(s)
         })
         .bench_refs(|s: &mut String| {
-            marvin32::hash(s.as_bytes(), 0);
+            marvin::hash(s.as_bytes(), 0);
         });
 }
 
@@ -53,6 +53,6 @@ impl Hasher for SipHash32 {
 
 impl Hasher for Marvin32 {
     fn hash(slice: &[u8], seed: u64) -> u32 {
-        marvin32::hash(slice, seed)
+        marvin::hash(slice, seed)
     }
 }

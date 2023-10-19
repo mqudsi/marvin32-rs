@@ -22,7 +22,7 @@ pub fn hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32
 }
 
 #[derive(Clone)]
-/// An `[std::hash::Hasher]` implementation using the marvin32 hash algorithm.
+/// An [`std::hash::Hasher`] implementation using the marvin32 hash algorithm.
 pub struct Marvin32 {
     state: Marvin32State,
     buffer: [u8; 4],
