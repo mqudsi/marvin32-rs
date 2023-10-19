@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "std")]
 use std::io::{ErrorKind, Read};
 
 /// Calculate the 32-bit hash of the provided slice `slice` using the initial seed `seed`.
@@ -8,6 +10,7 @@ pub fn hash(slice: &[u8], seed: u64) -> u32 {
     marvin32_hash(slice, seed)
 }
 
+#[cfg(feature = "std")]
 /// Calculate the 32-bit hash of the provided `source` using the initial seed `seed`.
 ///
 /// Only returns an error in case reading from `source` failed. Prefer to use `[hash()]` if
@@ -54,6 +57,7 @@ fn marvin32_hash(ptr: &[u8], seed: u64) -> u32 {
     state.lo ^ state.hi
 }
 
+#[cfg(feature = "std")]
 fn marvin32_hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32> {
     let mut state = Marvin32State {
         lo: seed as u32,
@@ -83,6 +87,7 @@ fn marvin32_hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Resul
     Ok(state.lo ^ state.hi)
 }
 
+#[cfg(feature = "std")]
 fn read_chunked<R: Read, const C: usize>(src: &mut R, dst: &mut [u8; C]) -> std::io::Result<usize> {
     let mut offset = 0;
     loop {
@@ -116,6 +121,7 @@ fn unit_test() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn unit_test_streaming() -> std::io::Result<()> {
     const TEST: &'static [u8] = b"A\0b\0c\0d\0e\0f\0g\0"; // "Abcdefg" in UTF-16-LE
     let mut cursor = std::io::Cursor::new(TEST);
