@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "std")]
-use std::io::{Cursor, ErrorKind, Read};
+use std::io::{ErrorKind, Read};
 #[cfg_attr(not(feature = "std"), allow(unused))]
 use core::hash::Hasher;
 
@@ -21,15 +21,15 @@ pub fn hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32
     marvin32_hash_streaming(source, seed)
 }
 
-#[cfg(feature = "std")]
 #[derive(Clone)]
 /// An `[std::hash::Hasher]` implementation using the marvin32 hash algorithm.
 pub struct Marvin32 {
     state: Marvin32State,
-    buffer: Cursor<[u8; 4]>,
+    buffer: [u8; 4],
+    pos: usize,
 }
 
-#[cfg_attr(feature = "std", derive(Clone))]
+#[derive(Clone)]
 struct Marvin32State {
     lo: u32,
     hi: u32,
@@ -124,7 +124,6 @@ fn read_chunked<R: Read, const C: usize>(src: &mut R, dst: &mut [u8; C]) -> std:
     }
 }
 
-#[cfg(feature = "std")]
 impl Marvin32 {
     pub fn new(seed: u64) -> Marvin32 {
         Self {
@@ -132,25 +131,24 @@ impl Marvin32 {
                 lo: seed as u32,
                 hi: (seed >> 32) as u32,
             },
-            buffer: Cursor::new([0u8; 4]),
+            buffer: [0u8; 4],
+            pos: 0,
         }
     }
 }
 
-#[cfg(feature = "std")]
 impl Hasher for Marvin32 {
     fn write(&mut self, mut slice: &[u8]) {
         // Assert we never start with a full buffer
-        debug_assert!(self.buffer.position() != 4);
+        debug_assert!(self.pos < 4);
         // We need to consume our buffer first (by reaching 4 bytes)
-        let bytes_to_steal = (4 - self.buffer.position() as usize).min(slice.len());
+        let bytes_to_steal = (4 - self.pos).min(slice.len());
         if bytes_to_steal < 4 {
-            let position = self.buffer.position() as usize;
-            self.buffer.get_mut()[position..][..bytes_to_steal].copy_from_slice(&slice[..bytes_to_steal]);
-            self.buffer.set_position((position + bytes_to_steal) as u64);
-            if self.buffer.position() == 4 {
-                let value = u32::from_le_bytes(*self.buffer.get_ref());
-                self.buffer.set_position(0);
+            self.buffer[self.pos..][..bytes_to_steal].copy_from_slice(&slice[..bytes_to_steal]);
+            self.pos += bytes_to_steal;
+            if self.pos == 4 {
+                let value = u32::from_le_bytes(self.buffer);
+                self.pos = 0;
                 marvin32_mix(&mut self.state, value);
             }
             slice = &slice[bytes_to_steal..];
@@ -162,13 +160,12 @@ impl Hasher for Marvin32 {
         }
         // Handle any leftover bytes
         let remainder = chunks.remainder();
-        let position = self.buffer.position() as usize;
-        self.buffer.get_mut()[position..][..remainder.len()].copy_from_slice(remainder);
-        self.buffer.set_position(position as u64 + remainder.len() as u64);
+        self.buffer[self.pos..][..remainder.len()].copy_from_slice(remainder);
+        self.pos += remainder.len();
     }
 
     fn finish(&self) -> u64 {
-        let final_value = self.buffer.get_ref()[..self.buffer.position() as usize]
+        let final_value = self.buffer[..self.pos as usize]
             .iter()
             .rev()
             .fold(0x80, |state, byte| (state << 8) | *byte as u32);
@@ -198,7 +195,6 @@ fn unit_test_streaming() -> std::io::Result<()> {
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn unit_test_hasher() -> std::io::Result<()> {
     const TEST: &'static [u8] = b"A\0b\0c\0d\0e\0f\0g\0"; // "Abcdefg" in UTF-16-LE
     let mut hash = Marvin32::new(0x5D70D359C498B3F8);
