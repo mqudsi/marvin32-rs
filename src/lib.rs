@@ -22,6 +22,7 @@ pub fn hash_streaming<R: Read>(source: &mut R, seed: u64) -> std::io::Result<u32
 }
 
 #[cfg(feature = "std")]
+#[derive(Clone)]
 /// An `[std::hash::Hasher]` implementation using the marvin32 hash algorithm.
 pub struct Marvin32 {
     state: Marvin32State,
@@ -139,28 +140,20 @@ impl Marvin32 {
 #[cfg(feature = "std")]
 impl Hasher for Marvin32 {
     fn write(&mut self, mut slice: &[u8]) {
-        use std::io::Write;
-
         // Assert we never start with a full buffer
         debug_assert!(self.buffer.position() != 4);
         // We need to consume our buffer first (by reaching 4 bytes)
-        let bytes_to_steal = 4 - self.buffer.position() as usize;
+        let bytes_to_steal = (4 - self.buffer.position() as usize).min(slice.len());
         if bytes_to_steal < 4 {
-            // Safe to unwrap since writes to an array-backed Cursor never fail
-            // Using write() instead of write_all() because it's faster and there's
-            // no need to use write_all() with an array-backed Cursor.
-            #[cfg(debug_assertions)]
-            let bytes_written = self.buffer.write(&slice[..bytes_to_steal]).unwrap();
-            #[cfg(not(debug_assertions))]
-            let bytes_written = unsafe { self.buffer.write(&slice[..bytes_to_steal]).unwrap_unchecked() };
-            debug_assert_eq!(bytes_written, slice.len().min(bytes_to_steal));
-            if bytes_written == bytes_to_steal {
-                // We have a full buffer now
-                let value = u32::from_le_bytes(self.buffer.get_ref().as_slice().try_into().unwrap());
+            let position = self.buffer.position() as usize;
+            self.buffer.get_mut()[position..][..bytes_to_steal].copy_from_slice(&slice[..bytes_to_steal]);
+            self.buffer.set_position((position + bytes_to_steal) as u64);
+            if self.buffer.position() == 4 {
+                let value = u32::from_le_bytes(*self.buffer.get_ref());
                 self.buffer.set_position(0);
                 marvin32_mix(&mut self.state, value);
             }
-            slice = &slice[bytes_written..];
+            slice = &slice[bytes_to_steal..];
         }
         let mut chunks = slice.chunks_exact(4);
         while let Some(chunk) = chunks.next() {
@@ -168,12 +161,10 @@ impl Hasher for Marvin32 {
             marvin32_mix(&mut self.state, value);
         }
         // Handle any leftover bytes
-        let bytes_written = self.buffer.write(chunks.remainder());
-        if cfg!(debug_assertions) {
-            let bytes_written = bytes_written.unwrap();
-            debug_assert_eq!(bytes_written, chunks.remainder().len());
-            debug_assert!(bytes_written < 4);
-        }
+        let remainder = chunks.remainder();
+        let position = self.buffer.position() as usize;
+        self.buffer.get_mut()[position..][..remainder.len()].copy_from_slice(remainder);
+        self.buffer.set_position(position as u64 + remainder.len() as u64);
     }
 
     fn finish(&self) -> u64 {
